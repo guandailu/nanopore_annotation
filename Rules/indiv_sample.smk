@@ -61,9 +61,10 @@ rule build_minimap_index:
     conda: 
         '99_scripts/Envs/minimap2.yaml'
     threads: 12
-    shell:"""
+    shell:
+        """
         minimap2 -t {threads} -k14 -I 1000G -d {output.index} {input.ref}
-    """
+        """
 
 rule mapping_by_sample:
     input: 
