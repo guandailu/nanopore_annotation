@@ -1,3 +1,21 @@
+import glob
+from snakemake.utils import R
+import re
+import socket
+from time import gmtime, strftime
+import pandas as ph
+
+#### Input samples
+samples_df = pd.read_csv('chicken_nanopore_samples.tsv').set_index("sample", drop=False)
+SAMPLES = list(samples_df['sample'])
+sample = SAMPLES
+
+#### input configuration ####
+configfile: "config.yaml"
+workdir: config['workdr']
+REF = config["reffa"]
+GTF = config["gtf"]
+
 rule pooling_seq:
     input:
         fq = expand("01_raw_data/{sample}.fq.gz", sample = SAMPLES)
