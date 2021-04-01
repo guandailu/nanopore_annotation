@@ -7,9 +7,10 @@ This project is in process, and documentation and description are still improvin
 ## Data preparation
 To run this pipeline, following files should be prepared:
   1. Reference genome:
-  
+      * fa
+      * gtf
   2. Fastq files:
-  * Fastq file: 
+      * tissue_sampleid.fq.gz
 
 ## Configuration file
 
