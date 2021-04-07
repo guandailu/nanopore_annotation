@@ -1,0 +1,4 @@
+workdir: /group/zhougrp/dguan/nanopore_annotation/Chicken
+snakedir: /group/zhougrp/dguan/nanopore_annotation/Chicken/99_scripts
+ref: /group/zhougrp/dguan/nanopore_annotation/Chicken/00_ref/Gallus_gallus.GRCg6a.dna_sm.toplevel.fa
+gtf: /group/zhougrp/dguan/nanopore_annotation/Chicken/00_ref/Gallus_gallus.GRCg6a.103.gtf
