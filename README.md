@@ -1,4 +1,4 @@
-## Transcriptome annotation of livestock genomes
+## Transcriptome annotation using nanopore sequencing
 
 Pipeline for transcriptome annotation of genomes using nanopore sequencing technology
 
