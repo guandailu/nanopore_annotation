@@ -15,7 +15,7 @@ To run this pipeline, following files should be prepared:
 ## Configuration file
       * Chicken_Kidney_CD.fq
       * Chicken_Ovary_CC.fq
-      N.B. The file can not be compressed, otherwise NanoPlot would report errors
+N.B. The file can not be compressed, otherwise NanoPlot would report errors
 
 ## Running the pipeline
 sbatch nanopore_ann_run.sh
