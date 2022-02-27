@@ -10,72 +10,98 @@ __default__:
   mail-type: FAIL,TIME_LIMIT
   mail-user: dguan@ucdavis.edu
 
-create_dirs:
-  partition: "med"
-  mem: 1G
-  time: 2:00:00
-  
+
 build_minimap_index:
-  partition: "bmm"
+  partition: "bmh"
   mem: 16G
   time: 8:00:00
 
 nanoplot:
-  partition: "bmm"
+  partition: "bmh"
   mem: 24G
   time: 24:00:00
-  
+
 run_pychopper:
-  partition: "bmm"
+  partition: "bmh"
   mem: 24G
   time: 24:00:00
 
 fq_compress:
-  partition: "med"
-  mem: 16G
+  partition: "high"
+  mem: 8G
   time: 8:00:00
 
 indiv_mapping:
-  partition: "bmm"
-  mem: 12G
+  partition: "bmh"
+  mem: 24G
   time: 24:00:00
 
 run_htseq:
-  partition: "bmm"
+  partition: "bmh"
   mem: 16G
-  time: 12:00:00
-
-merge_bam:
-  partition: "med"
-  mem: 24G
   time: 24:00:00
 
-plot_aln_stats:
-  partition: "med"
-  mem: 2G
-  time: 4:00:00
-
-split_bam:
-  partition: "bmm"
+merge_fq:
+  partition: "bmh"
   mem: 24G
   time: 8:00:00
+
+preprocess_pychopper:
+  partition: "high"
+  mem: 24G
+  time: 8:00:00
+
+generate_fq_stats:
+  partition: "high"
+  mem: 12G
+  time: 8:00:00
+
+map_reads:
+  partition: "bigmemh"
+  mem: 24G
+  time: 8:00:00
+ 
+clean_bam:
+  partition: "bmh"
+  mem: 8G
+  time: 6:00:00
+ 
+plot_aln_stats:
+  partition: "high"
+  mem: 8G
+  time: 6:00:00
 
 run_stringtie:
-  partition: "bmm"
+  partition: "bmh"
   mem: 24G
-  time: 12:00:00
-
-merge_gffs:
-  partition: "med"
-  mem: 4G
-  time: 8:00:00
+  time: 6:00:00
 
 run_gffcompare:
-  partition: "med"
+  partition: "bmh"
+  mem: 2G
+  time: 6:00:00
+
+run_gffread:
+  partition: "bmh"
+  mem: 2G
+  time: 8:00:00
+
+run_suppa:
+  partition: "bmh"
   mem: 4G
   time: 8:00:00
 
-run_gffread:
-  partition: "med"
-  mem: 4G
+mapping_ann:
+  partition: "bmh"
+  mem: 8G
+  time: 8:00:00
+
+nanocount:
+  partition: "high"
+  mem: 8G
+  time: 8:00:00
+
+run_cppred:
+  partition: "high"
+  mem: 8G
   time: 8:00:00
