@@ -1,0 +1,8 @@
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+ - matplotlib=3.4.1
+ - pandas=1.2.3
+ - seaborn=0.11.0
