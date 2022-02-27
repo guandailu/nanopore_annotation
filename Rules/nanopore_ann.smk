@@ -1,11 +1,10 @@
-# Author: Dailu Guan
 # Date: April 2, 2021
 
 
 ######################################################################################################################
 ##                                                                                                                  ##
 ##   This pipeline is used for annotating transcript isoforms using long-read sequencing of the Oxford Nanopore     ##
-##   Sequencing (ONT0). The workflow is initially built by Michelle M. Halstead, who used it in the transcript      ##
+##   Sequencing (ONT). The workflow is initially built by Michelle M. Halstead, who used it in the transcript      ##
 ##   isoform annotation of the cattle reference genome (ARS-ucd1.2).                                                ##
 ##                                                                                                                  ##
 ##   Citation: Michelle M. Halstead1, Alma Islas-Trejo1, Daniel E. Goszczynski1, Juan F. Medrano, Huaijun Zhou,     ##
@@ -21,60 +20,58 @@ import socket
 from time import gmtime, strftime
 import pandas as pd
 
+#### input configuration ####
+configfile: "config.yaml"
+workdir: config["workdir"]
+SNAKEDIR = config["snakedir"]
+REF = config["ref"]
+GTF = config["gtf"]
+name_prefix = config["name_prefix"]
 
 #### Input samples
-samples_df = pd.read_csv('chicken_nanopore_samples.tsv').set_index("SampleName", drop=False)
+sample_file = config["SampleList"]
+samples_df = pd.read_csv(sample_file).set_index("SampleName", drop=False)
 SAMPLES = samples_df.index.values
 sample = SAMPLES
 
 #### Input chromosome
-chr_df = pd.read_csv('genome_chr.txt').set_index("Chr", drop=False)
+genome_chr = config["ChrList"]
+chr_df = pd.read_csv(genome_chr).set_index("Chr", drop=False)
 CHR = [str(i) for i in chr_df.index.values]
 chr = CHR
 
-#### input configuration ####
-configfile: "config.yaml"
-workdir: config['workdir']
-SNAKEDIR = config['snakedir']
-REF = config["ref"]
-GTF = config["gtf"]
 
-
-DIRS = ['01_raw_data', '02_fq_summary', '03_pychopper', '04_indiv_mapping/', '05_htseq_counts', '06_pooled_bam', '07_pooling_gff', '08_gffcompare', '09_gffread']
-dir = DIRS
 NANO = expand("02_fq_summary/{sample}NanoStats.txt", sample = SAMPLES)
 PYCHRP = expand("03_pychopper/{sample}_pychopper_report.pdf", sample = SAMPLES)
 PYCHunFQ = expand("03_pychopper/{sample}_unclassified.fq.gz", sample = SAMPLES)
 PYCHrcRP = expand("03_pychopper/{sample}_rescued.fq.gz", sample = SAMPLES)
 FLFP = expand("03_pychopper/{sample}_full_length.fq.gz", sample = SAMPLES)
+SAM = expand("04_indiv_mapping/{sample}.sam", sample = SAMPLES)
 BAM = expand("04_indiv_mapping/{sample}.bam", sample = SAMPLES)
 BAI = expand("04_indiv_mapping/{sample}.bam.bai", sample = SAMPLES)
 STATS = expand("04_indiv_mapping/{sample}_flagstat.txt", sample = SAMPLES)
-HTCOUNT = expand("05_htseq_counts/{sample}_htseq_ENS101_counts.txt", sample = SAMPLES)
-mBAM = "06_pooled_bam/allSamples_reads_aln_sorted.bam"
-mBAI = "06_pooled_bam/allSamples_reads_aln_sorted.bam.bai"
-mSTATS = "06_pooled_bam/allSamples_read_aln_stats.tsv"
-CHRBAM = expand("07_split_bam/allSamples_reads_aln_sorted.chr{chr}.bam", chr = CHR)
-CHRBAI = expand("07_split_bam/allSamples_reads_aln_sorted.chr{chr}.bam.bai", chr = CHR)
-CHRGFF = expand("08_split_gff/allSamples_reads_aln_sorted.chr{chr}.gff", chr = CHR)
-GFFAnn = "09_merged_gff/allSamples_reads_aln_sorted.gff"
-FAnn = "11_gffread/allSamples_reads_aln_sorted_ONTann_transcriptome.fa"
-MERGEFA = "11_gffread/allSamples_reads_aln_sorted_transcriptome.fa"
+HTCOUNT = expand("05_htseq_counts/{sample}_htseq_ENS102_counts.txt", sample = SAMPLES)
+FQ = "06_mergered_fq/allSamples.fq"
+aFLFQ = "06_mergered_fq/allSamples_full_length.fq"
+mBAM = "07_mergered_alignment/allSamples.bam"
+mBAM = "07_mergered_alignment/allSamples_sort.bam",
+mSTATES = "07_mergered_alignment/allSamples_sort.tsv"
+GTFAnn = "08_stringtie/allSamples.gtf"
+TRACK = "09_gffcompare/gff_cmp.tracking"
+COMGFF = "09_gffcompare/gff_cmp.annotated.gtf"
+MERGEFA = "10_gffread/gff_cmp.annotated_transcriptome.fa"
+AL = "11_suppa/allSamples_ann_AL_strict.gtf"
+aBAM = expand("12_ann_mapping/{sample}.bam", sample = SAMPLES)
+TSE = expand("13_tse/{sample}.tsv", sample = SAMPLES)
+CPPRED = "14_cppred/gff_cmp.annotated_transcriptome.cppred.result"
 
 
-ruleorder: all > create_dirs > build_minimap_index > nanoplot > run_pychopper > fq_compress > indiv_mapping > run_htseq > merge_bam > split_bam > run_stringtie > merge_gffs > run_gffcompare > run_gffread
+ruleorder: all > build_minimap_index > nanoplot > run_pychopper > fq_compress > indiv_mapping > run_htseq > merge_fq > preprocess_pychopper > generate_fq_stats > map_reads > clean_bam > plot_aln_stats > run_stringtie > run_gffcompare > run_gffread > run_suppa > mapping_ann > run_cppred
 
 #### run the whole pipeline
 rule all:
     input:
-        NANO, PYCHRP, PYCHunFQ, PYCHrcRP, FLFP, BAM, BAI, STATS, HTCOUNT, mBAM, mBAI, mSTATS, CHRBAM, CHRBAI, CHRGFF, GFFAnn, FAnn, MERGEFA
-
-#### Creating directory #####
-rule create_dirs:
-    output: protected(expand("{dir}", dir = DIRS))
-    message: "Starting to create directory..."
-    shell: "mkdir -p {dir}"
-
+        NANO, PYCHRP, PYCHunFQ, PYCHrcRP, FLFP, SAM, BAM, BAI, STATS, HTCOUNT, mBAM, mSTATES, GTFAnn, TRACK, COMGFF, MERGEFA, AL, aBAM, TSE, CPPRED, aFLFQ
 
 rule build_minimap_index:
     input:
@@ -112,7 +109,7 @@ rule run_pychopper:
         report = "03_pychopper/{sample}_pychopper_report.pdf",
         unclassfq = "03_pychopper/{sample}_unclassified.fq",
         rescuefq = "03_pychopper/{sample}_rescued.fq",
-        flfq = "03_pychopper/{sample}_full_length.fq",
+        flfq = "03_pychopper/{sample}_full_length.fq"
     conda:
         "Envs/pychopper.yaml"
     threads: 12
@@ -135,9 +132,9 @@ rule fq_compress:
     threads: 8
     shell:
         """
-        cat {input.unclassfq} | {SNAKEDIR}/scripts/pigz -9 -p {threads} -c > {output.unclassfqgz}
-        cat {input.rescuefq} | {SNAKEDIR}/scripts/pigz -9 -p {threads} -c > {output.rescuefqgz}
-        cat {input.flfq} | {SNAKEDIR}/scripts/pigz -9 -p {threads} -c > {output.flfqgz}
+        cat {input.unclassfq} | pigz -9 -p {threads} -c > {output.unclassfqgz}
+        cat {input.rescuefq} | pigz -9 -p {threads} -c > {output.rescuefqgz}
+        cat {input.flfq} | pigz -9 -p {threads} -c > {output.flfqgz}
         """
 
 rule indiv_mapping:
@@ -145,27 +142,29 @@ rule indiv_mapping:
         fq = "03_pychopper/{sample}_full_length.fq.gz",
         ref = REF
     output:
+        osam = "04_indiv_mapping/{sample}.sam",
         obam = "04_indiv_mapping/{sample}.bam",
         obai = "04_indiv_mapping/{sample}.bam.bai",
-        state = "04_indiv_mapping/{sample}_flagstat.txt"
+        stats = "04_indiv_mapping/{sample}_flagstat.txt"
     conda:
         "Envs/minimap2.yaml"
     threads: 12
     shell:
         """
-        minimap2 -t {threads} -ax splice -uf -k14 -G 1000000 {input.ref} {input.fq} | samtools view -q 10 -F 2304 -bS | samtools sort -@ {threads} - > {output.obam}
+        minimap2 -t {threads} -ax splice -uf -k14 -G 1000000 {input.ref} {input.fq} > {output.osam}
+        samtools view -q 10 -F 2304 -bS {output.osam} | samtools sort -@ {threads} - > {output.obam}
         samtools index -@ {threads} {output.obam}
-        samtools flagstat -@ {threads} {output.obam} > {output.state}
+        samtools flagstat -@ {threads} {output.obam} > {output.stats}
         """
 
 rule run_htseq:
     input:
-        ibam = expand("04_indiv_mapping/{sample}.bam", sample = SAMPLES),
-        ibai = expand("04_indiv_mapping/{sample}.bam.bai", sample = SAMPLES),
+        ibam = "04_indiv_mapping/{sample}.bam",
+        ibai = "04_indiv_mapping/{sample}.bam.bai",
         gtf = GTF,
         ref = REF
     output:
-        htcount = "05_htseq_counts/{sample}_htseq_ENS101_counts.txt"
+        htcount = "05_htseq_counts/{sample}_htseq_ENS102_counts.txt"
     conda:
         "Envs/htseq.yaml"
     threads: 8
@@ -174,108 +173,195 @@ rule run_htseq:
         htseq-count -i gene_id --format=bam --order=pos --type=exon --stranded=yes --mode=intersection-nonempty {input.ibam} {input.gtf} > {output.htcount}
         """
 
-rule merge_bam:
+
+rule merge_fq:
     input:
-        bams = expand("04_indiv_mapping/{sample}.bam", sample = SAMPLES),
+        fqs = expand("01_raw_data/{sample}.fq", sample = SAMPLES),
         ref = REF
     output:
-        obam_tmp = "06_pooled_bam/allSamples_reads_aln.bam",
-        obam = "06_pooled_bam/allSamples_reads_aln_sorted.bam",
-        obai = "06_pooled_bam/allSamples_reads_aln_sorted.bam.bai",
-        stats = "06_pooled_bam/allSamples_read_aln_stats.tsv"
-    conda:
-        "Envs/samtools.yaml"
-    threads: 12
+        fq = "06_mergered_fq/allSamples.fq",
+    threads: 1
     shell:
         """
-        samtools merge -@ {threads} {output.obam_tmp} {input.bams}
-        samtools sort -@ {threads} {output.obam_tmp} > {output.obam}
-        samtools index -@ {threads} {output.obam}
-        samtools flagstat -@ {threads} {output.obam} > {output.stats}
+        cat {input.fqs} > {output.fq}
         """
 
-rule split_bam:
+rule preprocess_pychopper:
     input:
-        ibam = "06_pooled_bam/allSamples_reads_aln_sorted.bam",
-        ibai = "06_pooled_bam/allSamples_reads_aln_sorted.bam.bai",
-        ref = REF
+        fq = "06_mergered_fq/allSamples.fq"
     output:
-        obam = "07_split_bam/allSamples_reads_aln_sorted.chr{chr}.bam",
-        obai = "07_split_bam/allSamples_reads_aln_sorted.chr{chr}.bam.bai"
-    params:
-        chr = "{chr}"
+        report = "06_mergered_fq/allSamples_pychopper_report.pdf",
+        unclassfq = "06_mergered_fq/allSamples_unclassified.fq",
+        rescuefq = "06_mergered_fq/allSamples_rescued.fq",
+        flfq = "06_mergered_fq/allSamples_full_length.fq"
     conda:
-        "Envs/samtools.yaml"
+        "Envs/pychopper.yaml"
     threads: 12
     shell:
         """
-        samtools view -b -h -O BAM -o {output.obam} {input.ibam} {params.chr}
-        samtools index -@ {threads} {output.obam}
+        cdna_classifier.py -t {threads} -r {output.report} -u {output.unclassfq} -w {output.rescuefq} {input} {output.flfq}
+        """
+
+rule generate_fq_stats:
+    input:
+        fastq = "06_mergered_fq/allSamples_full_length.fq"
+    output:
+        lengths = "06_mergered_fq/lengths.txt",
+        base_qual = "06_mergered_fq/base_qual.txt",
+        read_qual = "06_mergered_fq/read_qual.txt"
+    threads: 1
+    shell:
+        """
+        {SNAKEDIR}/scripts/run_fastq_qc.py --fastq {input.fastq} --output "06_mergered_fq"
+        """
+
+
+rule map_reads:
+    input:
+        index = "00_ref/minimap2_idx",
+        fastq = "06_mergered_fq/allSamples_full_length.fq"
+    output:
+        sam = "07_mergered_alignment/allSamples.sam",
+        bam = "07_mergered_alignment/allSamples.bam",
+    conda: "Envs/minimap2.yaml"
+    threads: 12
+    shell:
+        """
+        minimap2 -t {threads} -ax splice -uf {input.index} {input.fastq} > {output.sam};
+        samtools view -q 10 -F 2304 -Sb {output.sam} > {output.bam}
+        """
+
+rule clean_bam:
+    input:
+        bam = "07_mergered_alignment/allSamples.bam"
+    output:
+        sort = "07_mergered_alignment/allSamples_sort.bam",
+        stats = "07_mergered_alignment/allSamples_sort.tsv"
+    conda:
+        "Envs/minimap2.yaml"
+    threads: 12
+    shell:
+        """
+        seqkit bam -j {threads} -x -T '{{Yaml: "99_scripts/AlnContext.yaml"}}' {input.bam} | samtools sort -@ {threads} -o {output.sort} -;
+        samtools index {output.sort}
+        ((seqkit bam -s -j {threads} {output.sort} 2>&1)  | tee {output.stats} ) || true
+        if [[ -s 07_mergered_alignment/internal_priming_fail.tsv ]];
+            then
+                tail -n +2 07_mergered_alignment/internal_priming_fail.tsv | awk '{{print ">" $1 "\\n" $4 }}' - > 07_mergered_alignment/context_internal_priming_fail_start.fasta
+                tail -n +2 07_mergered_alignment/internal_priming_fail.tsv | awk '{{print ">" $1 "\\n" $6 }}' - > 07_mergered_alignment/context_internal_priming_fail_end.fasta
+        fi
+        """
+
+rule plot_aln_stats:
+    input:
+        stats = "07_mergered_alignment/allSamples_sort.tsv",
+    output:
+        pdf = "07_mergered_alignment/allSamples_sort.pdf"
+    threads: 1
+    shell:
+        """
+        {SNAKEDIR}/scripts/plot_aln_stats.py {input.stats} -r {output.pdf}
         """
 
 rule run_stringtie:
     input:
-        bam = "07_split_bam/allSamples_reads_aln_sorted.chr{chr}.bam",
+        bam = "07_mergered_alignment/allSamples_sort.bam",
         gtf = GTF
     output:
-        gff = "08_split_gff/allSamples_reads_aln_sorted.chr{chr}.gff"
+        gff = "08_stringtie/allSamples.gtf"
+    params:
+        prefix = name_prefix
     conda: "Envs/stringtie.yaml"
     threads: 12
     shell:
         """
-        stringtie --rf -G {input.gtf} -l ONT -L -v -p {threads} --conservative -o {output.gff} {input.bam}
-        """
-
-rule merge_gffs:
-    input:
-        gffs = expand("08_split_gff/allSamples_reads_aln_sorted.chr{chr}.gff", chr = CHR)
-    output:
-        merged = "09_merged_gff/allSamples_reads_aln_sorted.gff"
-    threads: 1
-    shell: 
-        """
-        echo '#gff-version 2' >> {output.merged}
-        echo '#pipeline-nanopore-ref-isoforms: stringtie' >> {output.merged}
-        for i in {input.gffs}
-        do
-            grep -v '#' $i >> {output.merged}
-        done
+        stringtie --rf -G {input.gtf} -l {params.prefix} -L -v -p {threads} --conservative -o {output.gff} {input.bam}
         """
 
 rule run_gffcompare:
     input:
-        ann_gff = "09_merged_gff/allSamples_reads_aln_sorted.gff",
+        ann_gff = "08_stringtie/allSamples.gtf",
         gtf = GTF
     output:
-        cmp_dir = "10_gffcompare"
+        track = "09_gffcompare/gff_cmp.tracking",
+        cmp_gff = "09_gffcompare/gff_cmp.annotated.gtf"
     threads: 1
     params:
-        prefix = "gff_cmp"
+        outdir = "09_gffcompare",
+        prefix = "09_gffcompare/gff_cmp"
     conda: "Envs/gffcompare.yaml"
     shell:
         """
-        gffcompare -R -o {output.cmp_dir}/{params.prefix} -r {input.gtf} {input.ann_gff}
-        {SNAKEDIR}/scripts/generate_tracking_summary.py --tracking 10_gffcompare/gff_cmp.tracking --output_dir {output.cmp_dir} --annotation {input.gtf}
-        {SNAKEDIR}/scripts/plot_gffcmp_stats.py -r {output.cmp_dir}/gff_cmp_report.pdf -t 10_gffcompare/gff_cmp.tracking 10_gffcompare/gff_cmp.stats
+        gffcompare -R -o {params.prefix} -r {input.gtf} {input.ann_gff}
+        {SNAKEDIR}/scripts/generate_tracking_summary.py --tracking 09_gffcompare/gff_cmp.tracking --output_dir {params.outdir} --annotation {input.gtf}
+        {SNAKEDIR}/scripts/plot_gffcmp_stats.py -r {params.outdir}/gff_cmp_report.pdf -t 09_gffcompare/gff_cmp.tracking 09_gffcompare/gff_cmp.stats
         """
 
 rule run_gffread:
     input:
-        ann_gff = "09_merged_gff/allSamples_reads_aln_sorted.gff",
         ref = REF,
-        gff_cmp = "10_gffcompare"
+        cmp_gff = "09_gffcompare/gff_cmp.annotated.gtf"
     output:
-        fas = "11_gffread/allSamples_reads_aln_sorted_ONTann_transcriptome.fa",
-        merged_fas = "11_gffread/allSamples_reads_aln_sorted_transcriptome.fa",
+        merged_fa = "10_gffread/gff_cmp.annotated_transcriptome.fa",
     conda: "Envs/gffread.yaml"
     threads: 1
     shell:
         """
-        gffread -g {input.ref} -w {output.fas} {input.ann_gff}
-        if [ -f {input.gff_cmp}/gff_cmp.annotated.gtf ]
-        then
-            gffread -F -g {input.ref} -w {output.merged_fas} {input.gff_cmp}/gff_cmp.annotated.gtf
-        else
-            touch {output.merged_fas}
-        fi
+        gffread -F -g {input.ref} -w {output.merged_fa} {input.cmp_gff}
+        """
+
+rule run_suppa:
+    input:
+        ann_gff = "09_gffcompare/gff_cmp.annotated.gtf",
+        gtf = GTF
+    output:
+        AL = "11_suppa/allSamples_ann_AL_strict.gtf"
+    conda: "Envs/suppa.yaml",
+    params:
+        suppa = "11_suppa",
+        ref_prefix = "Gallus_gallus_GRCg6a",
+        ann_prefix = "allSamples_ann"
+    threads: 1
+    shell:
+        """
+        suppa.py generateEvents -i {input.gtf} -o {params.suppa}/{params.ref_prefix} -f ioe -e SE SS MX RI FL
+        suppa.py generateEvents -i {input.ann_gff} -o {params.suppa}/{params.ann_prefix} -f ioe -e SE SS MX RI FL
+        """
+
+rule mapping_ann:
+    input:
+        fq = "03_pychopper/{sample}_full_length.fq.gz",
+        tfa = "10_gffread/gff_cmp.annotated_transcriptome.fa"
+    output:
+        osam = "12_ann_mapping/{sample}.sam",
+        obam = "12_ann_mapping/{sample}.bam",
+        obai = "12_ann_mapping/{sample}.bam.bai",
+        tse = "13_tse/{sample}.tsv"
+    conda:
+        "Envs/minimap2.yaml"
+    threads: 12
+    shell:
+        """
+        minimap2 -t {threads}  -ax map-ont -p 0 -N 10 {input.tfa} {input.fq} > {output.osam}
+        samtools view -@ {threads} -bh {output.osam} | samtools sort -@ {threads} -O BAM - > {output.obam}
+        samtools index {output.obam}
+        /home/dguan/.local/bin/NanoCount -i {output.obam} -o {output.tse} -3 50 --extra_tx_info
+        """
+
+rule run_cppred:
+    input:
+        tfa = "10_gffread/gff_cmp.annotated_transcriptome.fa",
+    output:
+        cppred = "14_cppred/gff_cmp.annotated_transcriptome.cppred.result"
+    params:
+        path="99_scripts/CPPred/bin/"
+    conda:
+        "Envs/cppred.yaml"
+    threads: 1
+    shell:
+        """
+        cp {input.tfa} {params.path}/tmp.fa
+        cd {params.path}
+        python2 CPPred.py -i tmp.fa -hex ../Hexamer/Human_Hexamer.tsv -r ../Human_Model/Human.range -mol ../Human_Model/Human.model -spe Human -o tmp.cppred.result
+        cp tmp.cppred.result {output.cppred}
         """
