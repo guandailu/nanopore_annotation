@@ -1,4 +1,7 @@
 workdir: /group/zhougrp/dguan/nanopore_annotation/Chicken
 snakedir: /group/zhougrp/dguan/nanopore_annotation/Chicken/99_scripts
 ref: /group/zhougrp/dguan/nanopore_annotation/Chicken/00_ref/Gallus_gallus.GRCg6a.dna_sm.toplevel.fa
-gtf: /group/zhougrp/dguan/nanopore_annotation/Chicken/00_ref/Gallus_gallus.GRCg6a.103.gtf
+gtf: /group/zhougrp/dguan/nanopore_annotation/Chicken/00_ref/Gallus_gallus.GRCg6a.102.gtf
+SampleList: /group/zhougrp/dguan/nanopore_annotation/Chicken/99_scripts/chicken_nanopore_samples.tsv 
+ChrList: /group/zhougrp/dguan/nanopore_annotation/Chicken/99_scripts/genome_chr.txt
+name_prefix: "GRCg6a_ONTann" #name prefix for output transcripts
